@@ -20,6 +20,7 @@ const jobSelectorInput = document.getElementById('jobSelector');
 const createJobBtn = document.getElementById('createJob');
 const jobsBody = document.querySelector('#jobsTable tbody');
 const jobRunsPre = document.getElementById('jobRuns');
+const alertsBody = document.querySelector('#alertsTable tbody');
 
 function authHeaders() {
   return { Authorization: `Bearer ${state.token}` };
@@ -104,6 +105,7 @@ async function refreshNodes() {
   const data = await api('/api/v1/nodes');
   renderNodes(data.items || []);
   await refreshJobs();
+  await refreshAlerts();
 }
 
 async function selectNode(id) {
@@ -194,6 +196,34 @@ async function createJob() {
   jobCommandInput.value = '';
   jobArgsInput.value = '';
   await refreshJobs();
+}
+
+function renderAlerts(items) {
+  alertsBody.innerHTML = '';
+  for (const a of items) {
+    const tr = document.createElement('tr');
+    const btn = a.status === 'open' ? `<button data-ack=\"${a.id}\">Ack</button>` : '';
+    tr.innerHTML = `
+      <td>${a.id}</td>
+      <td>${a.severity}</td>
+      <td class=\"status-${a.status}\">${a.status}</td>
+      <td>${a.message}</td>
+      <td>${fmtDate(a.opened_at)}</td>
+      <td>${btn}</td>
+    `;
+    alertsBody.appendChild(tr);
+  }
+  for (const b of alertsBody.querySelectorAll('button[data-ack]')) {
+    b.onclick = async () => {
+      await api(`/api/v2/alerts/events/${b.dataset.ack}/ack`, { method: 'POST', body: '{}' });
+      await refreshAlerts();
+    };
+  }
+}
+
+async function refreshAlerts() {
+  const data = await api('/api/v2/alerts/events?limit=50');
+  renderAlerts(data.items || []);
 }
 
 saveTokenBtn.onclick = async () => {

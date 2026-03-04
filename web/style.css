@@ -68,6 +68,9 @@ tr:hover { background: #f6faff; cursor: pointer; }
 .status-offline { color: var(--bad); font-weight: 600; }
 .status-degraded { color: #d18a00; font-weight: 600; }
 .status-revoked { color: #7a1ea1; font-weight: 600; }
+.status-open { color: #d64545; font-weight: 600; }
+.status-ack { color: #d18a00; font-weight: 600; }
+.status-resolved { color: #1c8c5e; font-weight: 600; }
 .meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(0,1fr));

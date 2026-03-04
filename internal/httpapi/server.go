@@ -68,6 +68,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v2/jobs", s.withUserRole("viewer", s.handleV2Jobs))
 	mux.HandleFunc("/api/v2/jobs/", s.withUserRole("viewer", s.handleV2JobSubroutes))
 	mux.HandleFunc("/api/v2/policies/allowlist", s.withUserRole("viewer", s.handleV2Allowlist))
+	mux.HandleFunc("/api/v2/alerts/rules", s.withUserRole("viewer", s.handleV2AlertRules))
+	mux.HandleFunc("/api/v2/alerts/rules/", s.withUserRole("viewer", s.handleV2AlertRuleSubroutes))
+	mux.HandleFunc("/api/v2/alerts/events", s.withUserRole("viewer", s.handleV2AlertEvents))
+	mux.HandleFunc("/api/v2/alerts/events/", s.withUserRole("viewer", s.handleV2AlertEventSubroutes))
+	mux.HandleFunc("/api/v2/notifications/endpoints", s.withUserRole("viewer", s.handleV2NotificationEndpoints))
+	mux.HandleFunc("/api/v2/notifications/endpoints/", s.withUserRole("viewer", s.handleV2NotificationEndpointSubroutes))
+	mux.HandleFunc("/api/v2/slo/snapshots", s.withUserRole("viewer", s.handleV2SLOSnapshots))
 	mux.HandleFunc("/api/v2/agent/jobs/next", s.handleV2AgentNextJob)
 	mux.HandleFunc("/api/v2/agent/jobs/", s.handleV2AgentJobSubroutes)
 
@@ -545,6 +552,15 @@ func (s *Server) instrument(next http.Handler) http.Handler {
 		}
 		if strings.HasPrefix(p, "/api/v2/jobs/") {
 			p = path.Join("/api/v2/jobs", "{id}")
+		}
+		if strings.HasPrefix(p, "/api/v2/alerts/rules/") {
+			p = path.Join("/api/v2/alerts/rules", "{id}")
+		}
+		if strings.HasPrefix(p, "/api/v2/alerts/events/") {
+			p = path.Join("/api/v2/alerts/events", "{id}")
+		}
+		if strings.HasPrefix(p, "/api/v2/notifications/endpoints/") {
+			p = path.Join("/api/v2/notifications/endpoints", "{id}")
 		}
 		if strings.HasPrefix(p, "/api/v2/agent/jobs/") {
 			p = path.Join("/api/v2/agent/jobs", "{run_id}")

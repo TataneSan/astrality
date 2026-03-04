@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"astrality/internal/alerting"
 	"astrality/internal/auth"
 	"astrality/internal/config"
 	"astrality/internal/db"
@@ -58,6 +59,8 @@ func main() {
 
 	m := metrics.New()
 	server := httpapi.New(cfg, store, authn, ca, m)
+	alertSvc := alerting.New(cfg, store)
+	alertSvc.Start(ctx)
 
 	go func() {
 		<-ctx.Done()

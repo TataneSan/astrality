@@ -26,6 +26,14 @@ type Config struct {
 	HeartbeatOfflineSec int
 	DBTimeoutSec        int
 	EnrollRatePerMinute int
+	AlertEvalSec        int
+	NotifyScanSec       int
+	WebhookHMACSecret   string
+	SMTPHost            string
+	SMTPPort            int
+	SMTPUser            string
+	SMTPPass            string
+	SMTPFrom            string
 }
 
 func Load() (Config, error) {
@@ -48,6 +56,14 @@ func Load() (Config, error) {
 		HeartbeatOfflineSec: getenvInt("HEARTBEAT_OFFLINE_SEC", 60),
 		DBTimeoutSec:        getenvInt("DB_TIMEOUT_SEC", 5),
 		EnrollRatePerMinute: getenvInt("ENROLL_RATE_PER_MINUTE", 30),
+		AlertEvalSec:        getenvInt("ALERT_EVAL_SEC", 30),
+		NotifyScanSec:       getenvInt("NOTIFY_SCAN_SEC", 5),
+		WebhookHMACSecret:   getenv("WEBHOOK_HMAC_SECRET", ""),
+		SMTPHost:            getenv("SMTP_HOST", ""),
+		SMTPPort:            getenvInt("SMTP_PORT", 587),
+		SMTPUser:            getenv("SMTP_USER", ""),
+		SMTPPass:            getenv("SMTP_PASS", ""),
+		SMTPFrom:            getenv("SMTP_FROM", "astrality@localhost"),
 	}
 
 	if cfg.HTTPAddr == "" {

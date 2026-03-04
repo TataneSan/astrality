@@ -14,6 +14,9 @@ Centralized Linux node management control-plane with one-command enrollment.
 - Node revocation endpoint
 - v2 remote jobs queue (create/claim/result/cancel)
 - v2 allowlist policy endpoint
+- v2 alert rules/events + ack/mute
+- v2 notification endpoints (webhook/email)
+- v2 SLO snapshots API
 - Prometheus metrics endpoint
 - OIDC-ready auth (dev bearer fallback)
 - mTLS between enrolled agents and control-plane (HTTPS mode)
@@ -90,6 +93,20 @@ For production, run HTTPS with OIDC and keep `DEV_INSECURE_HTTP=false`.
 - `PUT /api/v2/policies/allowlist` (admin)
 - `POST /api/v2/agent/jobs/next` (agent)
 - `POST /api/v2/agent/jobs/{run_id}/result` (agent)
+
+## API v2 (alerting)
+
+- `GET /api/v2/alerts/rules` (viewer)
+- `POST /api/v2/alerts/rules` (admin)
+- `PUT /api/v2/alerts/rules/{id}` (admin)
+- `POST /api/v2/alerts/rules/{id}/mute` (operator)
+- `POST /api/v2/alerts/rules/{id}/unmute` (operator)
+- `GET /api/v2/alerts/events` (viewer)
+- `POST /api/v2/alerts/events/{id}/ack` (operator)
+- `GET /api/v2/notifications/endpoints` (viewer)
+- `POST /api/v2/notifications/endpoints` (admin)
+- `PUT /api/v2/notifications/endpoints/{id}` (admin)
+- `GET /api/v2/slo/snapshots` (viewer)
 
 ## Dev bearer tokens
 

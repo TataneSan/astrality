@@ -196,6 +196,69 @@ func (s *Store) Migrate(ctx context.Context) error {
 		`INSERT INTO allowlist_policies(id, commands, updated_by)
 		   VALUES(1, ARRAY['uname','uptime','df','free','echo','cat','ls','systemctl','journalctl']::text[], 'system')
 		   ON CONFLICT (id) DO NOTHING`,
+		`CREATE TABLE IF NOT EXISTS notification_endpoints (
+			id UUID PRIMARY KEY,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			config JSONB NOT NULL DEFAULT '{}'::jsonb,
+			enabled BOOLEAN NOT NULL DEFAULT true,
+			last_status TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
+		`CREATE TABLE IF NOT EXISTS alert_rules (
+			id UUID PRIMARY KEY,
+			name TEXT NOT NULL,
+			query_type TEXT NOT NULL,
+			query_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+			severity TEXT NOT NULL,
+			enabled BOOLEAN NOT NULL DEFAULT true,
+			cooldown_sec INT NOT NULL DEFAULT 300,
+			channel_ids UUID[] NOT NULL DEFAULT '{}',
+			mute_until TIMESTAMPTZ,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_alert_rules_enabled ON alert_rules(enabled, updated_at DESC)`,
+		`CREATE TABLE IF NOT EXISTS alert_events (
+			id UUID PRIMARY KEY,
+			rule_id UUID NOT NULL REFERENCES alert_rules(id) ON DELETE CASCADE,
+			target_type TEXT NOT NULL,
+			target_id TEXT NOT NULL,
+			severity TEXT NOT NULL,
+			status TEXT NOT NULL,
+			message TEXT NOT NULL,
+			fingerprint TEXT NOT NULL,
+			last_notified_at TIMESTAMPTZ,
+			opened_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			resolved_at TIMESTAMPTZ,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			UNIQUE(rule_id, fingerprint, status)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_alert_events_status_sev ON alert_events(status, severity, opened_at DESC)`,
+		`CREATE TABLE IF NOT EXISTS notification_attempts (
+			id UUID PRIMARY KEY,
+			event_id UUID NOT NULL REFERENCES alert_events(id) ON DELETE CASCADE,
+			endpoint_id UUID NOT NULL REFERENCES notification_endpoints(id) ON DELETE CASCADE,
+			status TEXT NOT NULL,
+			attempt_count INT NOT NULL DEFAULT 0,
+			last_error TEXT NOT NULL DEFAULT '',
+			next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			UNIQUE(event_id, endpoint_id)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_notification_attempts_pending ON notification_attempts(status, next_attempt_at)`,
+		`CREATE TABLE IF NOT EXISTS slo_snapshots (
+			id BIGSERIAL PRIMARY KEY,
+			window_start TIMESTAMPTZ NOT NULL,
+			window_end TIMESTAMPTZ NOT NULL,
+			control_plane_availability DOUBLE PRECISION NOT NULL,
+			heartbeat_freshness_p95_sec DOUBLE PRECISION NOT NULL,
+			offline_ratio DOUBLE PRECISION NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_slo_snapshots_window_end ON slo_snapshots(window_end DESC)`,
 	}
 
 	for _, stmt := range stmts {
