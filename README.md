@@ -8,7 +8,7 @@ Centralized Linux node management control-plane with one-command enrollment.
 - One-line node install script
 - Agent heartbeat + hardware/software facts
 - Node inventory API/UI
-- Console session command generation via bastion SSH
+- Console websocket proxy via configurable SSH (user/key/jump host)
 - Basic log ingestion endpoint
 - Agent credential rotation endpoint
 - Node revocation endpoint
@@ -72,6 +72,9 @@ For production, run HTTPS with OIDC and keep `DEV_INSECURE_HTTP=false`.
 
 ## API summary
 
+- `GET /api/v1/auth/config`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
 - `POST /api/v1/enrollment-tokens` (admin)
 - `POST /api/v1/enroll`
 - `POST /api/v1/agents/rotate`
@@ -136,7 +139,10 @@ For production, run HTTPS with OIDC and keep `DEV_INSECURE_HTTP=false`.
 - Enrollment endpoint accepts bootstrap HTTPS without client cert; post-enrollment endpoints require mTLS in HTTPS mode.
 - Agent stores cert/key/state in `/etc/astrality` by default.
 - Enroll token rate limiting is enabled (`ENROLL_RATE_PER_MINUTE`).
+- Login rate limiting is enabled (`LOGIN_RATE_PER_MINUTE`).
 - Agent removes `ENROLL_TOKEN` from `agent.env` after first successful enrollment.
+- Console proxy SSH is configurable via `CONSOLE_SSH_USERS`, `CONSOLE_TARGET_ORDER`, `CONSOLE_SSH_KEY_FILE`, and optional `BASTION_HOST`.
+- OIDC confidential clients are supported with `OIDC_CLIENT_SECRET`.
 
 ## Production bootstrap (mono-site)
 
@@ -145,3 +151,7 @@ sudo DB_PASS='change-me' KEYCLOAK_ADMIN_PASS='change-me' ./scripts/setup-prod.sh
 ```
 
 The script installs PostgreSQL, control-plane service, Keycloak service, and Prometheus baseline config.
+It also provisions:
+- control-plane web/artifacts under `/opt/astrality`
+- TLS certificate signed by the internal astrality CA (SAN-ready)
+- bootstrap OIDC admin credentials in `/etc/astrality/bootstrap-admin.env`

@@ -7,18 +7,62 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-  <header>
-    <h1>astrality</h1>
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand">astrality</div>
+      <div id="authState" class="auth-state">auth: disconnected</div>
+    </div>
     <div class="auth">
-      <input id="token" type="password" value="dev-admin" placeholder="Bearer token" />
+      <input id="loginUser" type="text" autocomplete="username" placeholder="username" />
+      <input id="loginPass" type="password" autocomplete="current-password" placeholder="password" />
+      <button id="loginBtn">Login</button>
+      <button id="logoutBtn">Logout</button>
+      <input id="token" type="password" placeholder="OIDC id_token" />
       <button id="saveToken">Set Token</button>
       <button id="refresh">Refresh</button>
     </div>
   </header>
 
-  <main>
-    <section class="panel left">
-      <h2>Machines</h2>
+  <div id="errorBanner" class="banner hidden"></div>
+
+  <section class="metrics">
+    <article class="metric">
+      <div class="metric-label">Total</div>
+      <div id="metricTotal" class="metric-value">0</div>
+    </article>
+    <article class="metric">
+      <div class="metric-label">Online</div>
+      <div id="metricOnline" class="metric-value status-online">0</div>
+    </article>
+    <article class="metric">
+      <div class="metric-label">Degraded</div>
+      <div id="metricDegraded" class="metric-value status-degraded">0</div>
+    </article>
+    <article class="metric">
+      <div class="metric-label">Offline</div>
+      <div id="metricOffline" class="metric-value status-offline">0</div>
+    </article>
+    <article class="metric">
+      <div class="metric-label">Revoked</div>
+      <div id="metricRevoked" class="metric-value status-revoked">0</div>
+    </article>
+  </section>
+
+  <main class="layout">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Machines</h2>
+        <div class="row">
+          <input id="nodeFilter" type="text" placeholder="Filter hostname / ip / status" />
+          <select id="autoRefreshSec">
+            <option value="0">Auto: Off</option>
+            <option value="5">Auto: 5s</option>
+            <option value="10" selected>Auto: 10s</option>
+            <option value="20">Auto: 20s</option>
+            <option value="30">Auto: 30s</option>
+          </select>
+        </div>
+      </div>
       <table id="nodesTable">
         <thead>
           <tr>
@@ -35,14 +79,17 @@
       </table>
     </section>
 
-    <section class="panel right">
-      <h2 id="nodeTitle">Machine Detail</h2>
-      <div id="nodeMeta" class="meta"></div>
-
-      <div class="actions">
-        <button id="openConsole">Open Console Session</button>
-        <button id="revokeNode">Revoke Node</button>
+    <section class="panel">
+      <div class="panel-head">
+        <h2 id="nodeTitle">Machine Detail</h2>
+        <div class="row">
+          <button id="openConsole">Open Console</button>
+          <button id="closeLive">Close Console</button>
+          <button id="revokeNode">Revoke</button>
+        </div>
       </div>
+      <div id="nodeMeta" class="meta"></div>
+      <div id="liveStatus" class="status-chip">console: closed</div>
 
       <h3>CPU Load</h3>
       <canvas id="chart" width="700" height="180"></canvas>
@@ -50,18 +97,21 @@
       <h3>Logs</h3>
       <pre id="logs"></pre>
 
-      <h3>Console Command</h3>
+      <h3>Live Console</h3>
       <pre id="console"></pre>
-      <div class="actions">
-        <input id="liveInput" type="text" placeholder="type command then Enter" />
-        <button id="closeLive">Close Live</button>
+      <div class="row">
+        <input id="liveInput" type="text" placeholder="command + Enter" />
       </div>
     </section>
 
-    <section class="panel" style="grid-column: 1 / span 2;">
-      <h2>Jobs v2</h2>
-      <div class="actions">
-        <input id="jobCommand" type="text" placeholder="command (ex: uname)" />
+    <section class="panel span-2">
+      <div class="panel-head">
+        <h2>Ops</h2>
+      </div>
+
+      <h3>Jobs</h3>
+      <div class="row">
+        <input id="jobCommand" type="text" placeholder="command" />
         <input id="jobArgs" type="text" placeholder="args (space separated)" />
         <input id="jobSelector" type="text" value="all" placeholder="selector: all or node-id,node-id" />
         <button id="createJob">Create Job</button>
@@ -81,7 +131,7 @@
       </table>
       <pre id="jobRuns"></pre>
 
-      <h2>Alerts v2</h2>
+      <h3>Alerts</h3>
       <table id="alertsTable">
         <thead>
           <tr>
@@ -96,7 +146,7 @@
         <tbody></tbody>
       </table>
 
-      <h2>Incident Timeline</h2>
+      <h3>Incident Timeline</h3>
       <table id="timelineTable">
         <thead>
           <tr>

@@ -55,18 +55,23 @@ else
 fi
 SIG_URL="${BIN_URL}.minisig"
 
+CURL_OPTS=(-fsSL)
+if [[ "${INSECURE_ENROLL_TLS}" == "true" ]]; then
+  CURL_OPTS+=(-k)
+fi
+
 mkdir -p "$INSTALL_DIR" "$CONFIG_DIR"
 TMP_BIN="$(mktemp)"
 trap 'rm -f "$TMP_BIN" /tmp/astrality-agent.minisig' EXIT
 
-curl -fsSL "$BIN_URL" -o "$TMP_BIN"
+curl "${CURL_OPTS[@]}" "$BIN_URL" -o "$TMP_BIN"
 
 if [[ -n "$PUBKEY" ]]; then
   if ! command -v minisign >/dev/null 2>&1; then
     echo "minisign required when --pubkey is set" >&2
     exit 1
   fi
-  curl -fsSL "$SIG_URL" -o "/tmp/astrality-agent.minisig"
+  curl "${CURL_OPTS[@]}" "$SIG_URL" -o "/tmp/astrality-agent.minisig"
   minisign -V -P "$PUBKEY" -m "$TMP_BIN" -x "/tmp/astrality-agent.minisig"
 fi
 
@@ -108,6 +113,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
+ReadWritePaths=${CONFIG_DIR}
 
 [Install]
 WantedBy=multi-user.target

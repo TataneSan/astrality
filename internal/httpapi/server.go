@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"crypto/tls"
@@ -39,6 +40,9 @@ type Server struct {
 	ca       *enroll.CA
 	m        *metrics.Registry
 	enrollRL *enrollRateLimiter
+	loginRL  *enrollRateLimiter
+	oidcMu   sync.RWMutex
+	oidcTEP  string
 }
 
 func New(cfg config.Config, store *db.Store, a *auth.Authenticator, ca *enroll.CA, m *metrics.Registry) *Server {
@@ -49,6 +53,7 @@ func New(cfg config.Config, store *db.Store, a *auth.Authenticator, ca *enroll.C
 		ca:       ca,
 		m:        m,
 		enrollRL: newEnrollRateLimiter(cfg.EnrollRatePerMinute),
+		loginRL:  newEnrollRateLimiter(cfg.LoginRatePerMinute),
 	}
 }
 
@@ -56,6 +61,9 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealth)
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/api/v1/auth/config", s.handleAuthConfig)
+	mux.HandleFunc("/api/v1/auth/login", s.handleAuthLogin)
+	mux.HandleFunc("/api/v1/auth/refresh", s.handleAuthRefresh)
 
 	mux.HandleFunc("/api/v1/enrollment-tokens", s.withUserRole("admin", s.handleEnrollmentToken))
 	mux.HandleFunc("/api/v1/enroll", s.handleEnroll)
@@ -178,7 +186,7 @@ func (s *Server) handleEnroll(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "token and hostname are required")
 		return
 	}
-	if req.IP == "" {
+	if req.IP == "" || isPrivateOrLoopbackIP(req.IP) {
 		req.IP = remoteIP(r.RemoteAddr)
 	}
 	if req.OS == "" {
@@ -594,6 +602,32 @@ func (r *statusRecorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
+func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h, ok := r.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("response does not implement http.Hijacker")
+	}
+	return h.Hijack()
+}
+
+func (r *statusRecorder) Flush() {
+	if f, ok := r.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (r *statusRecorder) Push(target string, opts *http.PushOptions) error {
+	p, ok := r.ResponseWriter.(http.Pusher)
+	if !ok {
+		return http.ErrNotSupported
+	}
+	return p.Push(target, opts)
+}
+
+func (r *statusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}
+
 func decodeJSON(body io.ReadCloser, dst any) error {
 	defer body.Close()
 	dec := json.NewDecoder(io.LimitReader(body, 1<<20))
@@ -623,6 +657,14 @@ func remoteIP(remoteAddr string) string {
 		return remoteAddr
 	}
 	return host
+}
+
+func isPrivateOrLoopbackIP(raw string) bool {
+	ip := net.ParseIP(strings.TrimSpace(raw))
+	if ip == nil {
+		return false
+	}
+	return ip.IsPrivate() || ip.IsLoopback() || ip.IsUnspecified()
 }
 
 func randomToken(n int) string {

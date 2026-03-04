@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -17,15 +18,21 @@ type Config struct {
 	DBURL               string
 	OIDCIssuer          string
 	OIDCAudience        string
+	OIDCClientSecret    string
 	DevBearerAdmin      string
 	DevBearerOperator   string
 	DevBearerViewer     string
 	BastionHost         string
+	ConsoleSSHUser      string
+	ConsoleSSHUsers     []string
+	ConsoleSSHKeyFile   string
+	ConsoleTargetOrder  []string
 	NodeCertTTL         time.Duration
 	SessionTTL          time.Duration
 	HeartbeatOfflineSec int
 	DBTimeoutSec        int
 	EnrollRatePerMinute int
+	LoginRatePerMinute  int
 	AlertEvalSec        int
 	NotifyScanSec       int
 	WebhookHMACSecret   string
@@ -47,15 +54,21 @@ func Load() (Config, error) {
 		DBURL:               getenv("DATABASE_URL", "postgres://astrality:astrality@localhost:5432/astrality?sslmode=disable"),
 		OIDCIssuer:          os.Getenv("OIDC_ISSUER"),
 		OIDCAudience:        os.Getenv("OIDC_AUDIENCE"),
+		OIDCClientSecret:    os.Getenv("OIDC_CLIENT_SECRET"),
 		DevBearerAdmin:      getenv("DEV_BEARER_ADMIN", "dev-admin"),
 		DevBearerOperator:   getenv("DEV_BEARER_OPERATOR", "dev-operator"),
 		DevBearerViewer:     getenv("DEV_BEARER_VIEWER", "dev-viewer"),
-		BastionHost:         getenv("BASTION_HOST", "bastion.internal"),
+		BastionHost:         strings.TrimSpace(os.Getenv("BASTION_HOST")),
+		ConsoleSSHUser:      getenv("CONSOLE_SSH_USER", "root"),
+		ConsoleSSHUsers:     parseCSV(getenv("CONSOLE_SSH_USERS", "")),
+		ConsoleSSHKeyFile:   strings.TrimSpace(os.Getenv("CONSOLE_SSH_KEY_FILE")),
+		ConsoleTargetOrder:  parseCSV(getenv("CONSOLE_TARGET_ORDER", "ip,hostname")),
 		NodeCertTTL:         getenvDuration("NODE_CERT_TTL", 168*time.Hour),
 		SessionTTL:          getenvDuration("SESSION_TTL", 30*time.Minute),
 		HeartbeatOfflineSec: getenvInt("HEARTBEAT_OFFLINE_SEC", 60),
 		DBTimeoutSec:        getenvInt("DB_TIMEOUT_SEC", 5),
 		EnrollRatePerMinute: getenvInt("ENROLL_RATE_PER_MINUTE", 30),
+		LoginRatePerMinute:  getenvInt("LOGIN_RATE_PER_MINUTE", 20),
 		AlertEvalSec:        getenvInt("ALERT_EVAL_SEC", 30),
 		NotifyScanSec:       getenvInt("NOTIFY_SCAN_SEC", 5),
 		WebhookHMACSecret:   getenv("WEBHOOK_HMAC_SECRET", ""),
@@ -69,6 +82,23 @@ func Load() (Config, error) {
 	if cfg.HTTPAddr == "" {
 		return Config{}, fmt.Errorf("HTTP_ADDR must not be empty")
 	}
+	if len(cfg.ConsoleSSHUsers) == 0 {
+		cfg.ConsoleSSHUsers = []string{strings.TrimSpace(cfg.ConsoleSSHUser)}
+	}
+	if len(cfg.ConsoleSSHUsers) == 0 || cfg.ConsoleSSHUsers[0] == "" {
+		cfg.ConsoleSSHUsers = []string{"root"}
+	}
+	validTargets := make([]string, 0, len(cfg.ConsoleTargetOrder))
+	for _, t := range cfg.ConsoleTargetOrder {
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "ip", "hostname":
+			validTargets = append(validTargets, strings.ToLower(strings.TrimSpace(t)))
+		}
+	}
+	if len(validTargets) == 0 {
+		validTargets = []string{"ip", "hostname"}
+	}
+	cfg.ConsoleTargetOrder = validTargets
 	return cfg, nil
 }
 
@@ -114,4 +144,22 @@ func getenvDuration(k string, d time.Duration) time.Duration {
 		return d
 	}
 	return dur
+}
+
+func parseCSV(raw string) []string {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	seen := map[string]struct{}{}
+	for _, p := range parts {
+		v := strings.TrimSpace(p)
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
 }

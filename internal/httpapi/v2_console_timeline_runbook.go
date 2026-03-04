@@ -3,7 +3,9 @@ package httpapi
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"io"
+	"log"
 	"net/http"
 	"os/exec"
 	"strconv"
@@ -16,6 +18,11 @@ import (
 
 	"github.com/gorilla/websocket"
 )
+
+type consoleRoute struct {
+	User   string
+	Target string
+}
 
 type createConsoleSessionReq struct {
 	NodeID string `json:"node_id"`
@@ -175,8 +182,15 @@ func (s *Server) handleV2ConsoleWS(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	sshTarget := "root@" + node.IP
-	cmd := exec.CommandContext(ctx, "ssh", "-tt", "-o", "StrictHostKeyChecking=no", "-J", s.cfg.BastionHost, sshTarget)
+	route, err := s.pickConsoleRoute(ctx, node)
+	if err != nil {
+		log.Printf("console ws route pick failed: node=%s err=%v", session.NodeID, err)
+		_ = conn.WriteJSON(map[string]any{"error": "proxy route unavailable"})
+		return
+	}
+	sshArgs := s.baseSSHArgs()
+	sshArgs = append(sshArgs, "-tt", route.User+"@"+route.Target)
+	cmd := exec.CommandContext(ctx, "ssh", sshArgs...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return
@@ -190,12 +204,13 @@ func (s *Server) handleV2ConsoleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := cmd.Start(); err != nil {
+		log.Printf("console ws ssh start failed: node=%s target=%s user=%s err=%v", session.NodeID, route.Target, route.User, err)
 		_ = conn.WriteJSON(map[string]any{"error": err.Error()})
 		return
 	}
 
 	_ = s.store.MarkConsoleSessionActive(r.Context(), sessionID)
-	_ = s.store.InsertTimelineEvent(r.Context(), "console_ws", session.NodeID, "info", session.OpenedBy, "console ws connected", map[string]any{"session_id": sessionID})
+	_ = s.store.InsertTimelineEvent(r.Context(), "console_ws", session.NodeID, "info", session.OpenedBy, "console ws connected", map[string]any{"session_id": sessionID, "target": route.Target, "user": route.User})
 
 	var writeMu sync.Mutex
 	send := func(data []byte) error {
@@ -242,6 +257,84 @@ func (s *Server) handleV2ConsoleWS(w http.ResponseWriter, r *http.Request) {
 	_ = cmd.Wait()
 	_ = s.store.CloseConsoleSession(r.Context(), sessionID)
 	_ = s.store.InsertTimelineEvent(r.Context(), "console_ws", session.NodeID, "info", session.OpenedBy, "console ws closed", map[string]any{"session_id": sessionID})
+}
+
+func (s *Server) baseSSHArgs() []string {
+	args := []string{
+		"-o", "StrictHostKeyChecking=no",
+		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "LogLevel=ERROR",
+		"-o", "BatchMode=yes",
+		"-o", "ConnectTimeout=3",
+	}
+	if keyFile := strings.TrimSpace(s.cfg.ConsoleSSHKeyFile); keyFile != "" {
+		args = append(args, "-i", keyFile)
+	}
+	if bastion := strings.TrimSpace(s.cfg.BastionHost); bastion != "" {
+		args = append(args, "-J", bastion)
+	}
+	return args
+}
+
+func (s *Server) pickConsoleRoute(ctx context.Context, node db.Node) (consoleRoute, error) {
+	users := s.cfg.ConsoleSSHUsers
+	if len(users) == 0 {
+		users = []string{"root"}
+	}
+	targets := make([]string, 0, 2)
+	for _, t := range s.cfg.ConsoleTargetOrder {
+		switch t {
+		case "ip":
+			if v := strings.TrimSpace(node.IP); v != "" {
+				targets = append(targets, v)
+			}
+		case "hostname":
+			if v := strings.TrimSpace(node.Hostname); v != "" {
+				targets = append(targets, v)
+			}
+		}
+	}
+	if len(targets) == 0 {
+		return consoleRoute{}, errors.New("no target configured for node")
+	}
+
+	seen := map[string]struct{}{}
+	orderedTargets := make([]string, 0, len(targets))
+	for _, t := range targets {
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		orderedTargets = append(orderedTargets, t)
+	}
+
+	var lastErr error
+	for _, target := range orderedTargets {
+		for _, user := range users {
+			user = strings.TrimSpace(user)
+			if user == "" {
+				continue
+			}
+			if err := s.probeSSHRoute(ctx, user, target); err != nil {
+				lastErr = err
+				continue
+			}
+			return consoleRoute{User: user, Target: target}, nil
+		}
+	}
+	if lastErr == nil {
+		lastErr = errors.New("no route candidates")
+	}
+	return consoleRoute{}, lastErr
+}
+
+func (s *Server) probeSSHRoute(ctx context.Context, user, target string) error {
+	probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	args := s.baseSSHArgs()
+	args = append(args, user+"@"+target, "true")
+	cmd := exec.CommandContext(probeCtx, "ssh", args...)
+	return cmd.Run()
 }
 
 func (s *Server) handleV2IncidentTimeline(w http.ResponseWriter, r *http.Request, p auth.Principal) {
