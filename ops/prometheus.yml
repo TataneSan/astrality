@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: control-plane
+    static_configs:
+      - targets: ['127.0.0.1:8443']
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true

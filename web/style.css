@@ -1,0 +1,96 @@
+:root {
+  --bg: #f4f6f8;
+  --panel: #ffffff;
+  --ink: #101820;
+  --muted: #5c6773;
+  --ok: #1c8c5e;
+  --bad: #d64545;
+  --line: #d8dee4;
+  --accent: #0f5ea8;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: radial-gradient(circle at 10% 10%, #dbe9f5 0, transparent 40%), var(--bg);
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #0d1b2a;
+  color: #f6fbff;
+}
+h1 { margin: 0; font-size: 20px; }
+.auth { display: flex; gap: 8px; }
+input, button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+button {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  cursor: pointer;
+}
+main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  min-height: 300px;
+}
+.left { overflow: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 13px;
+}
+tr:hover { background: #f6faff; cursor: pointer; }
+.status-online { color: var(--ok); font-weight: 600; }
+.status-offline { color: var(--bad); font-weight: 600; }
+.status-degraded { color: #d18a00; font-weight: 600; }
+.status-revoked { color: #7a1ea1; font-weight: 600; }
+.meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 6px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+pre {
+  background: #0d1b2a;
+  color: #e6edf3;
+  border-radius: 8px;
+  padding: 10px;
+  max-height: 180px;
+  overflow: auto;
+}
+#chart {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fbfd;
+}
+
+@media (max-width: 960px) {
+  main { grid-template-columns: 1fr; }
+  .meta { grid-template-columns: 1fr; }
+}

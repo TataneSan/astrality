@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>astrality</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>astrality</h1>
+    <div class="auth">
+      <input id="token" type="password" value="dev-admin" placeholder="Bearer token" />
+      <button id="saveToken">Set Token</button>
+      <button id="refresh">Refresh</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel left">
+      <h2>Machines</h2>
+      <table id="nodesTable">
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th>Status</th>
+            <th>IP</th>
+            <th>CPU%</th>
+            <th>RAM%</th>
+            <th>Disk%</th>
+            <th>Seen</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="panel right">
+      <h2 id="nodeTitle">Machine Detail</h2>
+      <div id="nodeMeta" class="meta"></div>
+
+      <div class="actions">
+        <button id="openConsole">Open Console Session</button>
+        <button id="revokeNode">Revoke Node</button>
+      </div>
+
+      <h3>CPU Load</h3>
+      <canvas id="chart" width="700" height="180"></canvas>
+
+      <h3>Logs</h3>
+      <pre id="logs"></pre>
+
+      <h3>Console Command</h3>
+      <pre id="console"></pre>
+    </section>
+
+    <section class="panel" style="grid-column: 1 / span 2;">
+      <h2>Jobs v2</h2>
+      <div class="actions">
+        <input id="jobCommand" type="text" placeholder="command (ex: uname)" />
+        <input id="jobArgs" type="text" placeholder="args (space separated)" />
+        <input id="jobSelector" type="text" value="all" placeholder="selector: all or node-id,node-id" />
+        <button id="createJob">Create Job</button>
+      </div>
+      <table id="jobsTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Command</th>
+            <th>Status</th>
+            <th>Selector</th>
+            <th>Created By</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <pre id="jobRuns"></pre>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

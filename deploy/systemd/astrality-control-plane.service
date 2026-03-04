@@ -1,0 +1,22 @@
+[Unit]
+Description=astrality control-plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=astrality
+Group=astrality
+WorkingDirectory=/opt/astrality
+EnvironmentFile=-/etc/astrality/control-plane.env
+ExecStart=/opt/astrality/control-plane
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/astrality
+
+[Install]
+WantedBy=multi-user.target
