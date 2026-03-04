@@ -75,6 +75,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v2/notifications/endpoints", s.withUserRole("viewer", s.handleV2NotificationEndpoints))
 	mux.HandleFunc("/api/v2/notifications/endpoints/", s.withUserRole("viewer", s.handleV2NotificationEndpointSubroutes))
 	mux.HandleFunc("/api/v2/slo/snapshots", s.withUserRole("viewer", s.handleV2SLOSnapshots))
+	mux.HandleFunc("/api/v2/console/sessions", s.withUserRole("viewer", s.handleV2ConsoleSessions))
+	mux.HandleFunc("/api/v2/console/sessions/", s.withUserRole("viewer", s.handleV2ConsoleSessionSubroutes))
+	mux.HandleFunc("/api/v2/console/ws/", s.handleV2ConsoleWS)
+	mux.HandleFunc("/api/v2/incidents/timeline", s.withUserRole("viewer", s.handleV2IncidentTimeline))
+	mux.HandleFunc("/api/v2/runbooks", s.withUserRole("viewer", s.handleV2Runbooks))
+	mux.HandleFunc("/api/v2/runbooks/", s.withUserRole("viewer", s.handleV2RunbookSubroutes))
 	mux.HandleFunc("/api/v2/agent/jobs/next", s.handleV2AgentNextJob)
 	mux.HandleFunc("/api/v2/agent/jobs/", s.handleV2AgentJobSubroutes)
 
@@ -561,6 +567,15 @@ func (s *Server) instrument(next http.Handler) http.Handler {
 		}
 		if strings.HasPrefix(p, "/api/v2/notifications/endpoints/") {
 			p = path.Join("/api/v2/notifications/endpoints", "{id}")
+		}
+		if strings.HasPrefix(p, "/api/v2/console/sessions/") {
+			p = path.Join("/api/v2/console/sessions", "{id}")
+		}
+		if strings.HasPrefix(p, "/api/v2/console/ws/") {
+			p = path.Join("/api/v2/console/ws", "{id}")
+		}
+		if strings.HasPrefix(p, "/api/v2/runbooks/") {
+			p = path.Join("/api/v2/runbooks", "{id}")
 		}
 		if strings.HasPrefix(p, "/api/v2/agent/jobs/") {
 			p = path.Join("/api/v2/agent/jobs", "{run_id}")

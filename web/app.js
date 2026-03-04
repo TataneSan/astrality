@@ -13,6 +13,8 @@ const logsPre = document.getElementById('logs');
 const consolePre = document.getElementById('console');
 const openConsoleBtn = document.getElementById('openConsole');
 const revokeNodeBtn = document.getElementById('revokeNode');
+const liveInput = document.getElementById('liveInput');
+const closeLiveBtn = document.getElementById('closeLive');
 const canvas = document.getElementById('chart');
 const jobCommandInput = document.getElementById('jobCommand');
 const jobArgsInput = document.getElementById('jobArgs');
@@ -21,6 +23,10 @@ const createJobBtn = document.getElementById('createJob');
 const jobsBody = document.querySelector('#jobsTable tbody');
 const jobRunsPre = document.getElementById('jobRuns');
 const alertsBody = document.querySelector('#alertsTable tbody');
+const timelineBody = document.querySelector('#timelineTable tbody');
+
+state.liveWs = null;
+state.liveSessionId = null;
 
 function authHeaders() {
   return { Authorization: `Bearer ${state.token}` };
@@ -106,6 +112,7 @@ async function refreshNodes() {
   renderNodes(data.items || []);
   await refreshJobs();
   await refreshAlerts();
+  await refreshTimeline();
 }
 
 async function selectNode(id) {
@@ -137,8 +144,49 @@ async function selectNode(id) {
 
 async function openConsole() {
   if (!state.selectedNode) return;
-  const out = await api(`/api/v1/nodes/${state.selectedNode}/console/session`, { method: 'POST', body: '{}' });
-  consolePre.textContent = out.ssh_command;
+  const reason = prompt('Reason for live session') || '';
+  if (!reason.trim()) return;
+  const out = await api('/api/v2/console/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ node_id: state.selectedNode, reason }),
+  });
+  const wsUrl = buildWebSocketURL(out.ws_url);
+  if (state.liveWs) {
+    state.liveWs.close();
+  }
+  state.liveSessionId = out.session.id;
+  state.liveWs = new WebSocket(wsUrl);
+  state.liveWs.binaryType = 'arraybuffer';
+  state.liveWs.onopen = () => {
+    consolePre.textContent = `[live connected] session=${state.liveSessionId}\n`;
+  };
+  state.liveWs.onmessage = (evt) => {
+    const text = typeof evt.data === 'string'
+      ? evt.data
+      : new TextDecoder().decode(new Uint8Array(evt.data));
+    consolePre.textContent += text;
+    consolePre.scrollTop = consolePre.scrollHeight;
+  };
+  state.liveWs.onclose = () => {
+    consolePre.textContent += '\n[live closed]\n';
+  };
+}
+
+function buildWebSocketURL(path) {
+  if (path.startsWith('ws://') || path.startsWith('wss://')) return path;
+  const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return `${proto}${window.location.host}${path}`;
+}
+
+async function closeLive() {
+  if (state.liveSessionId) {
+    await api(`/api/v2/console/sessions/${state.liveSessionId}/close`, { method: 'POST', body: '{}' });
+  }
+  if (state.liveWs) {
+    state.liveWs.close();
+    state.liveWs = null;
+  }
+  state.liveSessionId = null;
 }
 
 async function revokeNode() {
@@ -226,6 +274,26 @@ async function refreshAlerts() {
   renderAlerts(data.items || []);
 }
 
+function renderTimeline(items) {
+  timelineBody.innerHTML = '';
+  for (const t of items) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${fmtDate(t.ts)}</td>
+      <td>${t.kind}</td>
+      <td>${t.severity}</td>
+      <td>${t.actor}</td>
+      <td>${t.message}</td>
+    `;
+    timelineBody.appendChild(tr);
+  }
+}
+
+async function refreshTimeline() {
+  const data = await api('/api/v2/incidents/timeline?limit=100');
+  renderTimeline(data.items || []);
+}
+
 saveTokenBtn.onclick = async () => {
   state.token = tokenInput.value.trim();
   localStorage.setItem('token', state.token);
@@ -235,6 +303,14 @@ refreshBtn.onclick = async () => refreshNodes();
 openConsoleBtn.onclick = async () => openConsole();
 revokeNodeBtn.onclick = async () => revokeNode();
 createJobBtn.onclick = async () => createJob();
+closeLiveBtn.onclick = async () => closeLive();
+liveInput.onkeydown = (e) => {
+  if (e.key !== 'Enter') return;
+  if (!state.liveWs || state.liveWs.readyState !== WebSocket.OPEN) return;
+  const value = liveInput.value;
+  state.liveWs.send(value + '\n');
+  liveInput.value = '';
+};
 
 tokenInput.value = state.token;
 refreshNodes().catch((e) => {

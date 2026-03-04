@@ -88,14 +88,19 @@ func (s *Service) runEval(ctx context.Context) {
 	for _, rule := range rules {
 		triggered, message, fingerprint := evaluateRule(rule, offlineRatio, p95)
 		if triggered {
-			_, _, err := s.store.OpenOrRefreshAlertEvent(ctx, rule, "cluster", "all", message, fingerprint)
+			evt, isNew, err := s.store.OpenOrRefreshAlertEvent(ctx, rule, "cluster", "all", message, fingerprint)
 			if err != nil {
 				log.Printf("alert eval: open event error: %v", err)
+			}
+			if isNew {
+				_ = s.store.InsertTimelineEvent(ctx, "alert_open", "", rule.Severity, "system", message, map[string]any{"event_id": evt.ID, "rule_id": rule.ID})
 			}
 			continue
 		}
 		if err := s.store.ResolveAlertEvent(ctx, rule.ID, fingerprint); err != nil {
 			log.Printf("alert eval: resolve event error: %v", err)
+		} else {
+			_ = s.store.InsertTimelineEvent(ctx, "alert_resolved", "", rule.Severity, "system", "alert resolved", map[string]any{"rule_id": rule.ID, "fingerprint": fingerprint})
 		}
 	}
 }

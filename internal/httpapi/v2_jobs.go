@@ -73,6 +73,7 @@ func (s *Server) handleV2Jobs(w http.ResponseWriter, r *http.Request, p auth.Pri
 			return
 		}
 		_ = s.store.InsertAudit(r.Context(), p.Subject, "job.created", "", map[string]any{"job_id": job.ID, "command": job.Command})
+		_ = s.store.InsertTimelineEvent(r.Context(), "job_created", "", "info", p.Subject, "job created", map[string]any{"job_id": job.ID, "command": job.Command})
 		writeJSON(w, http.StatusCreated, job)
 	default:
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -127,6 +128,7 @@ func (s *Server) handleV2JobSubroutes(w http.ResponseWriter, r *http.Request, p 
 			return
 		}
 		_ = s.store.InsertAudit(r.Context(), p.Subject, "job.canceled", "", map[string]any{"job_id": jobID})
+		_ = s.store.InsertTimelineEvent(r.Context(), "job_canceled", "", "warning", p.Subject, "job canceled", map[string]any{"job_id": jobID})
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	default:
 		writeErr(w, http.StatusNotFound, "not found")
@@ -188,6 +190,7 @@ func (s *Server) handleV2AgentNextJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.store.InsertAudit(r.Context(), "agent:"+nodeID, "job.claimed", nodeID, map[string]any{"job_id": task.JobID, "run_id": task.RunID})
+	_ = s.store.InsertTimelineEvent(r.Context(), "job_claimed", nodeID, "info", "agent:"+nodeID, "job claimed", map[string]any{"job_id": task.JobID, "run_id": task.RunID})
 	writeJSON(w, http.StatusOK, task)
 }
 
@@ -235,6 +238,11 @@ func (s *Server) handleV2AgentJobSubroutes(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	_ = s.store.InsertAudit(r.Context(), "agent:"+nodeID, "job.finished", nodeID, map[string]any{"run_id": runID, "status": req.Status})
+	sev := "info"
+	if req.Status == "failed" || req.Status == "timed_out" {
+		sev = "critical"
+	}
+	_ = s.store.InsertTimelineEvent(r.Context(), "job_finished", nodeID, sev, "agent:"+nodeID, "job finished", map[string]any{"run_id": runID, "status": req.Status})
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 

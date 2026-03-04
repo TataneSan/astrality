@@ -52,6 +52,10 @@
 
       <h3>Console Command</h3>
       <pre id="console"></pre>
+      <div class="actions">
+        <input id="liveInput" type="text" placeholder="type command then Enter" />
+        <button id="closeLive">Close Live</button>
+      </div>
     </section>
 
     <section class="panel" style="grid-column: 1 / span 2;">
@@ -87,6 +91,20 @@
             <th>Message</th>
             <th>Opened</th>
             <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <h2>Incident Timeline</h2>
+      <table id="timelineTable">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Kind</th>
+            <th>Severity</th>
+            <th>Actor</th>
+            <th>Message</th>
           </tr>
         </thead>
         <tbody></tbody>

@@ -17,6 +17,9 @@ Centralized Linux node management control-plane with one-command enrollment.
 - v2 alert rules/events + ack/mute
 - v2 notification endpoints (webhook/email)
 - v2 SLO snapshots API
+- v2 live web console sessions + replay API
+- v2 incident timeline API
+- v2 runbook templates + executions API
 - Prometheus metrics endpoint
 - OIDC-ready auth (dev bearer fallback)
 - mTLS between enrolled agents and control-plane (HTTPS mode)
@@ -107,6 +110,20 @@ For production, run HTTPS with OIDC and keep `DEV_INSECURE_HTTP=false`.
 - `POST /api/v2/notifications/endpoints` (admin)
 - `PUT /api/v2/notifications/endpoints/{id}` (admin)
 - `GET /api/v2/slo/snapshots` (viewer)
+
+## API v2 (console/timeline/runbooks)
+
+- `GET /api/v2/console/sessions` (viewer)
+- `POST /api/v2/console/sessions` (operator)
+- `GET /api/v2/console/sessions/{id}` (viewer)
+- `POST /api/v2/console/sessions/{id}/close` (operator)
+- `GET /api/v2/console/sessions/{id}/replay` (viewer)
+- `GET /api/v2/incidents/timeline` (viewer)
+- `GET /api/v2/runbooks` (viewer)
+- `POST /api/v2/runbooks` (admin)
+- `POST /api/v2/runbooks/{id}/execute` (operator)
+- `GET /api/v2/runbooks/executions/{id}` (viewer)
+- `POST /api/v2/runbooks/executions/{id}/step/{step_id}/confirm` (operator)
 
 ## Dev bearer tokens
 

@@ -259,6 +259,65 @@ func (s *Store) Migrate(ctx context.Context) error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_slo_snapshots_window_end ON slo_snapshots(window_end DESC)`,
+		`CREATE TABLE IF NOT EXISTS console_sessions (
+			id UUID PRIMARY KEY,
+			node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+			opened_by TEXT NOT NULL,
+			reason TEXT NOT NULL,
+			status TEXT NOT NULL,
+			session_token_hash TEXT NOT NULL,
+			started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			ended_at TIMESTAMPTZ,
+			expires_at TIMESTAMPTZ NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_console_sessions_node_started ON console_sessions(node_id, started_at DESC)`,
+		`CREATE TABLE IF NOT EXISTS console_frames (
+			id BIGSERIAL PRIMARY KEY,
+			session_id UUID NOT NULL REFERENCES console_sessions(id) ON DELETE CASCADE,
+			ts TIMESTAMPTZ NOT NULL DEFAULT now(),
+			stream TEXT NOT NULL,
+			payload_b64 TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_console_frames_session_ts ON console_frames(session_id, ts ASC)`,
+		`CREATE TABLE IF NOT EXISTS incident_timeline (
+			id UUID PRIMARY KEY,
+			kind TEXT NOT NULL,
+			node_id UUID,
+			severity TEXT NOT NULL,
+			actor TEXT NOT NULL,
+			message TEXT NOT NULL,
+			refs JSONB NOT NULL DEFAULT '{}'::jsonb,
+			ts TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_incident_timeline_node_ts ON incident_timeline(node_id, ts DESC)`,
+		`CREATE TABLE IF NOT EXISTS runbook_templates (
+			id UUID PRIMARY KEY,
+			name TEXT NOT NULL,
+			trigger_tags TEXT[] NOT NULL DEFAULT '{}',
+			steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
+		`CREATE TABLE IF NOT EXISTS runbook_executions (
+			id UUID PRIMARY KEY,
+			runbook_id UUID NOT NULL REFERENCES runbook_templates(id) ON DELETE CASCADE,
+			incident_id UUID,
+			status TEXT NOT NULL,
+			current_step INT NOT NULL DEFAULT 0,
+			started_by TEXT NOT NULL,
+			started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`,
+		`CREATE TABLE IF NOT EXISTS runbook_execution_steps (
+			id UUID PRIMARY KEY,
+			execution_id UUID NOT NULL REFERENCES runbook_executions(id) ON DELETE CASCADE,
+			step_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			output TEXT NOT NULL DEFAULT '',
+			confirmed_by TEXT,
+			confirmed_at TIMESTAMPTZ
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_runbook_exec_started ON runbook_executions(started_at DESC)`,
 	}
 
 	for _, stmt := range stmts {
